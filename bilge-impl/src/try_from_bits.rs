@@ -8,7 +8,7 @@ use crate::shared::{bitsize_from_type_ident, last_ident_of_path, ArbInt};
 
 pub(super) fn try_from_bits(item: TokenStream) -> TokenStream {
     let derive_input = parse(item);
-    let (derive_data, _, name, internal_bitsize, ..) = analyze(&derive_input);
+    let (derive_data, name, internal_bitsize, ..) = analyze(&derive_input);
     match derive_data {
         Data::Struct(ref data) => codegen_struct(internal_bitsize.into(), name, &data.fields),
         Data::Enum(ref enum_data) => {
@@ -24,7 +24,7 @@ fn parse(item: TokenStream) -> DeriveInput {
     shared::parse_derive(item)
 }
 
-fn analyze(derive_input: &DeriveInput) -> (&syn::Data, TokenStream, &Ident, BitSize, Option<Fallback>) {
+fn analyze(derive_input: &DeriveInput) -> (&syn::Data, &Ident, BitSize, Option<Fallback>) {
     shared::analyze_derive(derive_input, true)
 }
 

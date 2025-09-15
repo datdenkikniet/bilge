@@ -6,7 +6,7 @@ use crate::shared::{self, discriminant_assigner::DiscriminantAssigner, fallback:
 
 pub(crate) fn binary(item: TokenStream) -> TokenStream {
     let derive_input = parse(item);
-    let (derive_data, _, name, bitsize, fallback) = analyze(&derive_input);
+    let (derive_data, name, bitsize, fallback) = analyze(&derive_input);
 
     match derive_data {
         Data::Struct(data) => generate_struct_binary_impl(name, &data.fields),
@@ -103,6 +103,6 @@ fn parse(item: TokenStream) -> DeriveInput {
     shared::parse_derive(item)
 }
 
-fn analyze(derive_input: &DeriveInput) -> (&Data, TokenStream, &Ident, BitSize, Option<Fallback>) {
+fn analyze(derive_input: &DeriveInput) -> (&Data, &Ident, BitSize, Option<Fallback>) {
     shared::analyze_derive(derive_input, false)
 }

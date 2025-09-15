@@ -8,7 +8,7 @@ use crate::shared::{self, discriminant_assigner::DiscriminantAssigner, enum_fill
 
 pub(super) fn from_bits(item: TokenStream) -> TokenStream {
     let derive_input = parse(item);
-    let (derive_data, _, name, internal_bitsize, fallback) = analyze(&derive_input);
+    let (derive_data, name, internal_bitsize, fallback) = analyze(&derive_input);
     let arb_int = ArbInt::from(internal_bitsize);
     let expanded = match &derive_data {
         Data::Struct(struct_data) => generate_struct(arb_int, name, &struct_data.fields),
@@ -26,7 +26,7 @@ fn parse(item: TokenStream) -> DeriveInput {
     shared::parse_derive(item)
 }
 
-fn analyze(derive_input: &DeriveInput) -> (&syn::Data, TokenStream, &Ident, BitSize, Option<Fallback>) {
+fn analyze(derive_input: &DeriveInput) -> (&syn::Data, &Ident, BitSize, Option<Fallback>) {
     shared::analyze_derive(derive_input, false)
 }
 

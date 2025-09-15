@@ -8,7 +8,7 @@ use crate::shared::{self, fallback::Fallback, unreachable, BitSize};
 pub(crate) fn default_bits(item: TokenStream) -> TokenStream {
     let derive_input = parse(item);
     //TODO: does fallback need handling?
-    let (derive_data, _, name, ..) = analyze(&derive_input);
+    let (derive_data, name, ..) = analyze(&derive_input);
 
     match derive_data {
         Data::Struct(data) => generate_struct_default_impl(name, &data.fields),
@@ -87,6 +87,6 @@ fn parse(item: TokenStream) -> DeriveInput {
     shared::parse_derive(item)
 }
 
-fn analyze(derive_input: &DeriveInput) -> (&Data, TokenStream, &Ident, BitSize, Option<Fallback>) {
+fn analyze(derive_input: &DeriveInput) -> (&Data, &Ident, BitSize, Option<Fallback>) {
     shared::analyze_derive(derive_input, false)
 }

@@ -8,7 +8,7 @@ pub use types::*;
 use fallback::{fallback_variant, Fallback};
 use proc_macro2::{Ident, Literal, TokenStream};
 use proc_macro_error2::{abort, abort_call_site};
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{Attribute, DeriveInput, LitInt, Meta, Type};
 use util::PathExt;
 
@@ -25,7 +25,7 @@ pub(crate) fn parse_derive(item: TokenStream) -> DeriveInput {
 
 // allow since we want `if try_from` blocks to stand out
 #[allow(clippy::collapsible_if)]
-pub(crate) fn analyze_derive(derive_input: &DeriveInput, try_from: bool) -> (&syn::Data, TokenStream, &Ident, BitSize, Option<Fallback>) {
+pub(crate) fn analyze_derive(derive_input: &DeriveInput, try_from: bool) -> (&syn::Data, &Ident, BitSize, Option<Fallback>) {
     let DeriveInput {
         attrs,
         ident,
@@ -59,9 +59,7 @@ pub(crate) fn analyze_derive(derive_input: &DeriveInput, try_from: bool) -> (&sy
         abort_call_site!("fallback is not allowed with `TryFromBits`"; help = "use `#[derive(FromBits)]` or remove this `#[fallback]`")
     }
 
-    let arb_int = ArbInt::from(bitsize).to_token_stream();
-
-    (data, arb_int, ident, bitsize, fallback)
+    (data, ident, bitsize, fallback)
 }
 
 // If we want to support bitsize(u4) besides bitsize(4), do that here.
