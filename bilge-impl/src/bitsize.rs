@@ -21,7 +21,7 @@ pub(super) fn bitsize(args: TokenStream, item: TokenStream) -> TokenStream {
         Item::Struct(mut item) => {
             modify_special_field_names(&mut item.fields);
             analyze_struct(&item.fields);
-            let expanded = generate_struct(&item, declared_bitsize.get());
+            let expanded = generate_struct(&item, declared_bitsize);
             ItemIr { expanded }
         }
         Item::Enum(item) => {
@@ -31,7 +31,7 @@ pub(super) fn bitsize(args: TokenStream, item: TokenStream) -> TokenStream {
         }
         _ => unreachable(()),
     };
-    generate_common(ir, attrs, declared_bitsize.get())
+    generate_common(ir, attrs, declared_bitsize)
 }
 
 fn parse(item: TokenStream, args: TokenStream) -> (Item, BitSize) {
@@ -116,13 +116,12 @@ fn analyze_enum(bitsize: BitSize, variants: Iter<Variant>) {
 
     if !has_fallback {
         // this has a side-effect of validating the enum count
-        let _ = enum_fills_bitsize(bitsize.get(), variant_count);
+        let _ = enum_fills_bitsize(bitsize, variant_count);
     }
 }
 
-fn generate_struct(item: &ItemStruct, declared_bitsize: u8) -> TokenStream {
+fn generate_struct(item: &ItemStruct, declared_bitsize: BitSize) -> TokenStream {
     let ItemStruct { vis, ident, fields, .. } = item;
-    let declared_bitsize = declared_bitsize as usize;
 
     let computed_bitsize = fields.iter().fold(quote!(0), |acc, next| {
         let field_size = shared::generate_type_bitsize(&next.ty);
@@ -169,7 +168,7 @@ fn generate_enum(item: &ItemEnum) -> TokenStream {
 
 /// we have _one_ generate_common function, which holds everything that struct and enum have _in common_.
 /// Everything else has its own generate_ functions.
-fn generate_common(ir: ItemIr, attrs: SplitAttributes, declared_bitsize: u8) -> TokenStream {
+fn generate_common(ir: ItemIr, attrs: SplitAttributes, declared_bitsize: BitSize) -> TokenStream {
     let ItemIr { expanded } = ir;
     let SplitAttributes {
         before_compression,

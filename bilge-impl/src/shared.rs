@@ -135,8 +135,8 @@ pub fn last_ident_of_path(ty: &Type) -> Option<&Ident> {
 
 /// in enums, internal_bitsize <= 64; u64::MAX + 1 = u128
 /// therefore the bitshift would not overflow.
-pub fn enum_fills_bitsize(bitsize: u8, variants_count: usize) -> bool {
-    let max_variants_count = 1u128 << bitsize;
+pub fn enum_fills_bitsize(bitsize: BitSize, variants_count: usize) -> bool {
+    let max_variants_count = 1u128 << bitsize.get();
     if variants_count as u128 > max_variants_count {
         abort_call_site!("enum overflows its bitsize"; help = "there should only be at most {} variants defined", max_variants_count);
     }

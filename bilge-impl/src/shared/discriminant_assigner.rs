@@ -10,9 +10,9 @@ pub(crate) struct DiscriminantAssigner {
 }
 
 impl DiscriminantAssigner {
-    pub fn new(bitsize: u8) -> DiscriminantAssigner {
+    pub fn new(bitsize: BitSize) -> DiscriminantAssigner {
         DiscriminantAssigner {
-            bitsize: BitSize(bitsize),
+            bitsize,
             next_expected_assignment: 0,
         }
     }
