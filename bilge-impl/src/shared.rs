@@ -8,7 +8,7 @@ pub use types::*;
 use fallback::{fallback_variant, Fallback};
 use proc_macro2::{Ident, Literal, TokenStream};
 use proc_macro_error2::{abort, abort_call_site};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{Attribute, DeriveInput, LitInt, Meta, Type};
 use util::PathExt;
 
@@ -52,29 +52,31 @@ pub(crate) fn analyze_derive(derive_input: &DeriveInput, try_from: bool) -> (&sy
         .iter()
         .find_map(bitsize_internal_arg)
         .unwrap_or_else(|| abort_call_site!("add #[bitsize] attribute above your derive attribute"));
-    let (bitsize, arb_int) = bitsize_and_arbitrary_int_from(args);
+    let bitsize = bitsize(args);
 
     let fallback = fallback_variant(data, bitsize);
     if fallback.is_some() && try_from {
         abort_call_site!("fallback is not allowed with `TryFromBits`"; help = "use `#[derive(FromBits)]` or remove this `#[fallback]`")
     }
 
+    let arb_int = ArbInt::from(bitsize).to_token_stream();
+
     (data, arb_int, ident, bitsize, fallback)
 }
 
 // If we want to support bitsize(u4) besides bitsize(4), do that here.
-pub fn bitsize_and_arbitrary_int_from(bitsize_arg: TokenStream) -> (BitSize, TokenStream) {
+pub fn bitsize(bitsize_arg: TokenStream) -> BitSize {
     let bitsize: LitInt = syn::parse2(bitsize_arg.clone())
         .unwrap_or_else(|_| abort!(bitsize_arg, "attribute value is not a number"; help = "you need to define the size like this: `#[bitsize(32)]`"));
+
     // without postfix
     let bitsize = bitsize
         .base10_parse()
         .ok()
         .filter(|&n| n != BitSize(0) && n <= MAX_STRUCT_BIT_SIZE)
         .unwrap_or_else(|| abort!(bitsize_arg, "attribute value is not a valid number"; help = "currently, numbers from 1 to {} are allowed", MAX_STRUCT_BIT_SIZE));
-    let arb_int = syn::parse_str(&format!("u{bitsize}")).unwrap_or_else(unreachable);
 
-    (bitsize, arb_int)
+    bitsize
 }
 
 pub fn generate_type_bitsize(ty: &Type) -> TokenStream {

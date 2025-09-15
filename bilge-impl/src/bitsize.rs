@@ -41,7 +41,7 @@ fn parse(item: TokenStream, args: TokenStream) -> (Item, BitSize) {
         abort_call_site!("missing attribute value"; help = "you need to define the size like this: `#[bitsize(32)]`")
     }
 
-    let (declared_bitsize, _arb_int) = shared::bitsize_and_arbitrary_int_from(args);
+    let declared_bitsize = shared::bitsize(args);
     (item, declared_bitsize)
 }
 

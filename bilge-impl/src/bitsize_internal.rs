@@ -1,9 +1,9 @@
 use proc_macro2::Span;
 use proc_macro2::{Ident, TokenStream};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{Attribute, Field, Item, ItemEnum, ItemStruct, Type};
 
-use crate::shared::{self, unreachable};
+use crate::shared::{self, unreachable, ArbInt};
 
 pub(crate) mod struct_gen;
 
@@ -37,7 +37,8 @@ pub(super) fn bitsize_internal(args: TokenStream, item: TokenStream) -> TokenStr
 
 fn parse(item: TokenStream, args: TokenStream) -> (Item, TokenStream) {
     let item = syn::parse2(item).unwrap_or_else(unreachable);
-    let (_declared_bitsize, arb_int) = shared::bitsize_and_arbitrary_int_from(args);
+    let declared_bitsize = shared::bitsize(args);
+    let arb_int = ArbInt::from(declared_bitsize).to_token_stream();
     (item, arb_int)
 }
 

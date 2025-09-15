@@ -34,3 +34,20 @@ impl ToTokens for BitSize {
         ident.to_tokens(tokens);
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct ArbInt(pub u8);
+
+impl From<BitSize> for ArbInt {
+    fn from(value: BitSize) -> Self {
+        Self(value.0)
+    }
+}
+
+impl ToTokens for ArbInt {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        // TODO: attach call site?
+        let ident = syn::Ident::new(&format!("u{}", self.0), Span::call_site());
+        ident.to_tokens(tokens);
+    }
+}
