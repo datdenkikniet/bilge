@@ -1,19 +1,20 @@
 use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error2::{abort, abort_call_site};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{punctuated::Iter, Data, DeriveInput, Fields, Type, Variant};
 
-use crate::shared::{self, discriminant_assigner::DiscriminantAssigner, enum_fills_bitsize, fallback::Fallback, unreachable, BitSize};
+use crate::shared::{self, discriminant_assigner::DiscriminantAssigner, enum_fills_bitsize, fallback::Fallback, unreachable, ArbInt, BitSize};
 
 pub(super) fn from_bits(item: TokenStream) -> TokenStream {
     let derive_input = parse(item);
-    let (derive_data, arb_int, name, internal_bitsize, fallback) = analyze(&derive_input);
+    let (derive_data, _, name, internal_bitsize, fallback) = analyze(&derive_input);
+    let arb_int = ArbInt::from(internal_bitsize);
     let expanded = match &derive_data {
         Data::Struct(struct_data) => generate_struct(arb_int, name, &struct_data.fields),
         Data::Enum(enum_data) => {
             let variants = enum_data.variants.iter();
-            let match_arms = analyze_enum(variants, name, internal_bitsize, fallback.as_ref(), &arb_int);
+            let match_arms = analyze_enum(variants, name, internal_bitsize, fallback.as_ref());
             generate_enum(arb_int, name, match_arms, fallback)
         }
         _ => unreachable(()),
@@ -30,7 +31,7 @@ fn analyze(derive_input: &DeriveInput) -> (&syn::Data, TokenStream, &Ident, BitS
 }
 
 fn analyze_enum(
-    variants: Iter<Variant>, name: &Ident, internal_bitsize: BitSize, fallback: Option<&Fallback>, arb_int: &TokenStream,
+    variants: Iter<Variant>, name: &Ident, internal_bitsize: BitSize, fallback: Option<&Fallback>,
 ) -> (Vec<TokenStream>, Vec<TokenStream>) {
     validate_enum_variants(variants.clone(), fallback);
 
@@ -76,7 +77,7 @@ fn analyze_enum(
             let to_int_match_arm = if is_value_fallback(variant_name) {
                 quote! { #name::#variant_name(number) => number, }
             } else {
-                shared::to_int_match_arm(name, variant_name, arb_int, variant_value)
+                shared::to_int_match_arm(name, variant_name, &ArbInt::from(internal_bitsize).to_token_stream(), variant_value)
             };
 
             (from_int_match_arm, to_int_match_arm)
@@ -84,14 +85,12 @@ fn analyze_enum(
         .unzip()
 }
 
-fn generate_enum(
-    arb_int: TokenStream, enum_type: &Ident, match_arms: (Vec<TokenStream>, Vec<TokenStream>), fallback: Option<Fallback>,
-) -> TokenStream {
+fn generate_enum(arb_int: ArbInt, enum_type: &Ident, match_arms: (Vec<TokenStream>, Vec<TokenStream>), fallback: Option<Fallback>) -> TokenStream {
     let (from_int_match_arms, to_int_match_arms) = match_arms;
 
     let const_ = if cfg!(feature = "nightly") { quote!(const) } else { quote!() };
 
-    let from_enum_impl = shared::generate_from_enum_impl(&arb_int, enum_type, to_int_match_arms, &const_);
+    let from_enum_impl = shared::generate_from_enum_impl(&arb_int.to_token_stream(), enum_type, to_int_match_arms, &const_);
 
     let catch_all_arm = match fallback {
         Some(Fallback::WithValue(fallback_ident)) => quote! {
@@ -141,7 +140,7 @@ fn generate_filled_check_for(ty: &Type, vec: &mut Vec<TokenStream>) {
     }
 }
 
-fn generate_struct(arb_int: TokenStream, struct_type: &Ident, fields: &Fields) -> TokenStream {
+fn generate_struct(arb_int: ArbInt, struct_type: &Ident, fields: &Fields) -> TokenStream {
     let const_ = if cfg!(feature = "nightly") { quote!(const) } else { quote!() };
 
     let mut assumes = Vec::new();
