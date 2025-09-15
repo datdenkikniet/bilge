@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error2::abort_call_site;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, Type};
+use syn::{Data, DeriveInput, Fields, Type, TypeArray};
 
 use crate::shared::{self, fallback::Fallback, unreachable, BitSize};
 
@@ -17,69 +17,45 @@ pub(crate) fn default_bits(item: TokenStream) -> TokenStream {
     }
 }
 
-fn generate_struct_default_impl(struct_name: &Ident, fields: &Fields) -> TokenStream {
-    let default_value = fields
-        .iter()
-        .map(|field| generate_default_inner(&field.ty))
-        .reduce(|acc, next| quote!(#acc | #next));
-
-    quote! {
-        impl ::core::default::Default for #struct_name {
-            fn default() -> Self {
-                let mut offset = 0;
-                let value = #default_value;
-                let value = <#struct_name as Bitsized>::ArbitraryInt::new(value);
-                Self { value }
-            }
-        }
-    }
+fn default(ty: &Type) -> TokenStream {
+    quote! { <#ty as ::core::default::Default>::default() }
 }
 
-fn generate_default_inner(ty: &Type) -> TokenStream {
-    use Type::*;
-    match ty {
-        // TODO?: we could optimize nested arrays here like in `struct_gen.rs`
-        // NOTE: in std, Default is only derived for arrays with up to 32 elements, but we allow more
-        Array(array) => {
-            let len_expr = &array.len;
-            let elem_ty = &*array.elem;
-            // generate the default value code for one array element
-            let value_shifted = generate_default_inner(elem_ty);
-            quote! {{
-                // constness: iter, array::from_fn, for-loop, range are not const, so we're using while loops
-                let mut acc = 0;
-                let mut i = 0;
-                while i < #len_expr {
-                    // for every element, shift its value into its place
-                    let value_shifted = #value_shifted;
-                    // and bit-or them together
-                    acc |= value_shifted;
-                    i += 1;
-                }
-                acc
-            }}
+fn generate_default_array(array: &TypeArray) -> TokenStream {
+    let inner = match array.elem.as_ref() {
+        Type::Array(nested) => generate_default_array(&nested),
+        v => default(&v),
+    };
+
+    let len = &array.len;
+    quote! { [#inner; #len] }
+}
+
+fn generate_struct_default_impl(name: &Ident, fields: &Fields) -> TokenStream {
+    let to_copy = match fields {
+        Fields::Named(fields) => fields.named.iter(),
+        Fields::Unnamed(fields) => fields.unnamed.iter(),
+        Fields::Unit => unreachable!(),
+    };
+
+    let copies = to_copy.filter_map(|f| {
+        if f.ident.as_ref().map(|i| i.to_string().starts_with("reserved_")).unwrap_or(false) {
+            None
+        } else {
+            if let Type::Array(array) = &f.ty {
+                Some(generate_default_array(&array))
+            } else {
+                Some(default(&f.ty))
+            }
         }
-        Path(path) => {
-            let field_size = shared::generate_type_bitsize(ty);
-            // u2::from(HaveFun::default()).value() as u32;
-            quote! {{
-                let as_int = <#path as Bitsized>::ArbitraryInt::from(<#path as ::core::default::Default>::default()).value();
-                let as_base_int = as_int as <<Self as Bitsized>::ArbitraryInt as Integer>::UnderlyingType;
-                let shifted = as_base_int << offset;
-                offset += #field_size;
-                shifted
-            }}
+    });
+
+    quote! {
+        impl ::core::default::Default for #name {
+            fn default() -> Self {
+                Self::new(#(#copies,)*)
+            }
         }
-        Tuple(tuple) => {
-            tuple
-                .elems
-                .iter()
-                .map(generate_default_inner)
-                .reduce(|acc, next| quote!(#acc | #next))
-                // `field: (),` will be handled like this:
-                .unwrap_or_else(|| quote!(0))
-        }
-        _ => unreachable(()),
     }
 }
 
