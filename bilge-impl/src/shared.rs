@@ -185,7 +185,7 @@ pub fn bitsize_from_type_ident(type_name: &Ident) -> Option<BitSize> {
     }
 }
 
-pub fn to_int_match_arm(enum_name: &Ident, variant_name: &Ident, arb_int: &TokenStream, variant_value: Literal) -> TokenStream {
+pub fn to_int_match_arm(enum_name: &Ident, variant_name: &Ident, arb_int: ArbInt, variant_value: Literal) -> TokenStream {
     quote! { #enum_name::#variant_name => #arb_int::new(#variant_value), }
 }
 

@@ -1,8 +1,8 @@
 use proc_macro2::{Ident, TokenStream};
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{punctuated::Iter, Data, DeriveInput, Fields, Variant};
 
-use crate::shared::{self, discriminant_assigner::DiscriminantAssigner, fallback::Fallback, unreachable, ArbInt, BitSize};
+use crate::shared::{self, discriminant_assigner::DiscriminantAssigner, fallback::Fallback, unreachable, BitSize};
 
 pub(crate) fn binary(item: TokenStream) -> TokenStream {
     let derive_input = parse(item);
@@ -93,7 +93,7 @@ fn generate_to_int_match_arms(variants: Iter<Variant>, enum_name: &Ident, bitsiz
             if is_value_fallback(variant_name) {
                 quote! { #enum_name::#variant_name(number) => *number, }
             } else {
-                shared::to_int_match_arm(enum_name, variant_name, &ArbInt::from(bitsize).to_token_stream(), variant_value)
+                shared::to_int_match_arm(enum_name, variant_name, bitsize.into(), variant_value)
             }
         })
         .collect()

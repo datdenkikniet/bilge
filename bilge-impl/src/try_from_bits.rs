@@ -29,7 +29,6 @@ fn analyze(derive_input: &DeriveInput) -> (&syn::Data, TokenStream, &Ident, BitS
 }
 
 fn analyze_enum(variants: Iter<Variant>, name: &Ident, internal_bitsize: BitSize) -> (Vec<TokenStream>, Vec<TokenStream>) {
-    let arb_int: ArbInt = internal_bitsize.into();
     validate_enum_variants(variants.clone());
 
     if enum_fills_bitsize(internal_bitsize, variants.len()) {
@@ -47,7 +46,7 @@ fn analyze_enum(variants: Iter<Variant>, name: &Ident, internal_bitsize: BitSize
                 #variant_value => Ok(Self::#variant_name),
             };
 
-            let to_int_match_arm = shared::to_int_match_arm(name, variant_name, &arb_int.to_token_stream(), variant_value);
+            let to_int_match_arm = shared::to_int_match_arm(name, variant_name, internal_bitsize.into(), variant_value);
 
             (from_int_match_arm, to_int_match_arm)
         })

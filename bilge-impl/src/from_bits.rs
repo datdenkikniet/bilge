@@ -77,7 +77,7 @@ fn analyze_enum(
             let to_int_match_arm = if is_value_fallback(variant_name) {
                 quote! { #name::#variant_name(number) => number, }
             } else {
-                shared::to_int_match_arm(name, variant_name, &ArbInt::from(internal_bitsize).to_token_stream(), variant_value)
+                shared::to_int_match_arm(name, variant_name, internal_bitsize.into(), variant_value)
             };
 
             (from_int_match_arm, to_int_match_arm)
