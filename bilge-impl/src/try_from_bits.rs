@@ -1,20 +1,20 @@
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error2::{abort, emit_call_site_warning};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{punctuated::Iter, Data, DeriveInput, Fields, Type, Variant};
 
 use crate::shared::{self, discriminant_assigner::DiscriminantAssigner, enum_fills_bitsize, fallback::Fallback, unreachable, BitSize};
-use crate::shared::{bitsize_from_type_ident, last_ident_of_path};
+use crate::shared::{bitsize_from_type_ident, last_ident_of_path, ArbInt};
 
 pub(super) fn try_from_bits(item: TokenStream) -> TokenStream {
     let derive_input = parse(item);
-    let (derive_data, arb_int, name, internal_bitsize, ..) = analyze(&derive_input);
+    let (derive_data, _, name, internal_bitsize, ..) = analyze(&derive_input);
     match derive_data {
-        Data::Struct(ref data) => codegen_struct(arb_int, name, &data.fields),
+        Data::Struct(ref data) => codegen_struct(internal_bitsize.into(), name, &data.fields),
         Data::Enum(ref enum_data) => {
             let variants = enum_data.variants.iter();
-            let match_arms = analyze_enum(variants, name, internal_bitsize, &arb_int);
-            codegen_enum(arb_int, name, match_arms)
+            let match_arms = analyze_enum(variants, name, internal_bitsize);
+            codegen_enum(internal_bitsize.into(), name, match_arms)
         }
         _ => unreachable(()),
     }
@@ -28,7 +28,8 @@ fn analyze(derive_input: &DeriveInput) -> (&syn::Data, TokenStream, &Ident, BitS
     shared::analyze_derive(derive_input, true)
 }
 
-fn analyze_enum(variants: Iter<Variant>, name: &Ident, internal_bitsize: BitSize, arb_int: &TokenStream) -> (Vec<TokenStream>, Vec<TokenStream>) {
+fn analyze_enum(variants: Iter<Variant>, name: &Ident, internal_bitsize: BitSize) -> (Vec<TokenStream>, Vec<TokenStream>) {
+    let arb_int: ArbInt = internal_bitsize.into();
     validate_enum_variants(variants.clone());
 
     if enum_fills_bitsize(internal_bitsize, variants.len()) {
@@ -46,19 +47,19 @@ fn analyze_enum(variants: Iter<Variant>, name: &Ident, internal_bitsize: BitSize
                 #variant_value => Ok(Self::#variant_name),
             };
 
-            let to_int_match_arm = shared::to_int_match_arm(name, variant_name, arb_int, variant_value);
+            let to_int_match_arm = shared::to_int_match_arm(name, variant_name, &arb_int.to_token_stream(), variant_value);
 
             (from_int_match_arm, to_int_match_arm)
         })
         .unzip()
 }
 
-fn codegen_enum(arb_int: TokenStream, enum_type: &Ident, match_arms: (Vec<TokenStream>, Vec<TokenStream>)) -> TokenStream {
+fn codegen_enum(arb_int: ArbInt, enum_type: &Ident, match_arms: (Vec<TokenStream>, Vec<TokenStream>)) -> TokenStream {
     let (from_int_match_arms, to_int_match_arms) = match_arms;
 
     let const_ = if cfg!(feature = "nightly") { quote!(const) } else { quote!() };
 
-    let from_enum_impl = shared::generate_from_enum_impl(&arb_int, enum_type, to_int_match_arms, &const_);
+    let from_enum_impl = shared::generate_from_enum_impl(&arb_int.to_token_stream(), enum_type, to_int_match_arms, &const_);
     quote! {
         impl #const_ ::core::convert::TryFrom<#arb_int> for #enum_type {
             type Error = ::bilge::BitsError;
@@ -81,7 +82,7 @@ fn generate_field_check(ty: &Type) -> TokenStream {
     crate::bitsize_internal::struct_gen::generate_getter_inner(ty, false)
 }
 
-fn codegen_struct(arb_int: TokenStream, struct_type: &Ident, fields: &Fields) -> TokenStream {
+fn codegen_struct(arb_int: ArbInt, struct_type: &Ident, fields: &Fields) -> TokenStream {
     let is_ok: TokenStream = fields
         .iter()
         .map(|field| {
