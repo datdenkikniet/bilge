@@ -1,5 +1,5 @@
 use itertools::MultiUnzip;
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error2::abort_call_site;
 use quote::quote;
 use syn::{Data, Field, Fields};
@@ -40,7 +40,7 @@ pub(super) fn serialize_bits(item: TokenStream) -> TokenStream {
         }
         Fields::Unnamed(fields) => {
             let calls = fields.unnamed.iter().enumerate().map(|(i, _)| {
-                let call: Ident = syn::parse_str(&format!("val_{}", i)).unwrap_or_else(unreachable);
+                let call = syn::Ident::new(&format!("val_{i}"), Span::call_site());
                 quote!(state.serialize_field(&self.#call())?;)
             });
             let len = fields.unnamed.len();
@@ -131,7 +131,7 @@ pub(super) fn deserialize_bits(item: TokenStream) -> TokenStream {
             .unnamed
             .iter()
             .enumerate()
-            .map(|(i, _)| deserialize_field_parts(i, &syn::parse_str(&format!("val_{}", i)).unwrap_or_else(unreachable)))
+            .map(|(i, _)| deserialize_field_parts(i, &syn::Ident::new(&format!("val_{i}"), Span::call_site())))
             .multiunzip(),
         Fields::Unit => todo!("this is a unit struct, which is not supported right now"),
     };

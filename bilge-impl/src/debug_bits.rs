@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Span, TokenStream};
 use proc_macro_error2::abort_call_site;
 use quote::quote;
 use syn::{Data, Fields};
@@ -31,7 +31,7 @@ pub(super) fn debug_bits(item: TokenStream) -> TokenStream {
         }
         Fields::Unnamed(fields) => {
             let calls = fields.unnamed.iter().enumerate().map(|(i, _)| {
-                let call: Ident = syn::parse_str(&format!("val_{i}")).unwrap_or_else(unreachable);
+                let call = syn::Ident::new(&format!("val_{i}"), Span::call_site());
                 quote!(.field(&self.#call()))
             });
             quote! {

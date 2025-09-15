@@ -1,3 +1,4 @@
+use proc_macro2::Span;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{Attribute, Field, Item, ItemEnum, ItemStruct, Type};
@@ -95,8 +96,7 @@ fn generate_field(field: &Field, field_offset: &TokenStream, i: usize) -> (Token
     let name = if let Some(ident) = ident {
         ident.clone()
     } else {
-        let name = format!("val_{i}");
-        syn::parse_str(&name).unwrap_or_else(unreachable)
+        syn::Ident::new(&format!("val_{i}"), Span::call_site())
     };
 
     // skip reserved fields in constructors and setters
@@ -107,8 +107,7 @@ fn generate_field(field: &Field, field_offset: &TokenStream, i: usize) -> (Token
         let size = shared::generate_type_bitsize(ty);
         let accessors = quote!(#getter);
         let constructor_arg = quote!();
-        let shifted_name = format!("shifted_{name}");
-        let shifted_name: Ident = syn::parse_str(&shifted_name).unwrap_or_else(unreachable);
+        let shifted_name = syn::Ident::new(&format!("shift_{name}"), Span::call_site());
         let constructor_part = quote! {
             let #shifted_name = {
                 // we still need to shift by the element's size
@@ -141,7 +140,7 @@ fn generate_getter(field: &Field, offset: &TokenStream, name: &Ident) -> TokenSt
     let array_at = if let Type::Array(array) = ty {
         let elem_ty = &array.elem;
         let len_expr = &array.len;
-        let name: Ident = syn::parse_str(&format!("{name}_at")).unwrap_or_else(unreachable);
+        let name = syn::Ident::new(&format!("{name}_at"), Span::call_site());
         let getter_value = struct_gen::generate_getter_value(elem_ty, offset, true);
         quote! {
             // #[inline]
@@ -172,14 +171,14 @@ fn generate_setter(field: &Field, offset: &TokenStream, name: &Ident) -> TokenSt
     let Field { attrs, vis, ty, .. } = field;
     let setter_value = struct_gen::generate_setter_value(ty, offset, false);
 
-    let name: Ident = syn::parse_str(&format!("set_{name}")).unwrap_or_else(unreachable);
+    let name = syn::Ident::new(&format!("set_{name}"), Span::call_site());
 
     let const_ = if cfg!(feature = "nightly") { quote!(const) } else { quote!() };
 
     let array_at = if let Type::Array(array) = ty {
         let elem_ty = &array.elem;
         let len_expr = &array.len;
-        let name: Ident = syn::parse_str(&format!("{name}_at")).unwrap_or_else(unreachable);
+        let name = syn::Ident::new(&format!("{name}_at"), Span::call_site());
         let setter_value = struct_gen::generate_setter_value(elem_ty, offset, true);
         quote! {
             // #[inline]
@@ -207,13 +206,13 @@ fn generate_setter(field: &Field, offset: &TokenStream, name: &Ident) -> TokenSt
 }
 
 fn generate_constructor_stuff(ty: &Type, name: &Ident) -> (TokenStream, TokenStream, Ident) {
-    let name = format!("arg_{name}");
-    let name: Ident = syn::parse_str(&name).unwrap_or_else(unreachable);
+    let name = syn::Ident::new(&format!("arg_{name}"), Span::call_site());
+
     let constructor_arg = quote! {
         #name: #ty,
     };
-    let shifted_name = format!("shifted_{name}");
-    let shifted_name: Ident = syn::parse_str(&shifted_name).unwrap_or_else(unreachable);
+
+    let shifted_name = syn::Ident::new(&format!("shifted_{name}"), Span::call_site());
 
     let constructor_part = struct_gen::generate_constructor_part(ty, &name, &shifted_name);
     (constructor_arg, constructor_part, shifted_name)
