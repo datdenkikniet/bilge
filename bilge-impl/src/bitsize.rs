@@ -21,7 +21,7 @@ pub(super) fn bitsize(args: TokenStream, item: TokenStream) -> TokenStream {
         Item::Struct(mut item) => {
             modify_special_field_names(&mut item.fields);
             analyze_struct(&item.fields);
-            let expanded = generate_struct(&item, declared_bitsize);
+            let expanded = generate_struct(&item, declared_bitsize.get());
             ItemIr { expanded }
         }
         Item::Enum(item) => {
@@ -31,7 +31,7 @@ pub(super) fn bitsize(args: TokenStream, item: TokenStream) -> TokenStream {
         }
         _ => unreachable(()),
     };
-    generate_common(ir, attrs, declared_bitsize)
+    generate_common(ir, attrs, declared_bitsize.get())
 }
 
 fn parse(item: TokenStream, args: TokenStream) -> (Item, BitSize) {
@@ -116,7 +116,7 @@ fn analyze_enum(bitsize: BitSize, variants: Iter<Variant>) {
 
     if !has_fallback {
         // this has a side-effect of validating the enum count
-        let _ = enum_fills_bitsize(bitsize, variant_count);
+        let _ = enum_fills_bitsize(bitsize.get(), variant_count);
     }
 }
 

@@ -1,6 +1,9 @@
 pub mod discriminant_assigner;
 pub mod fallback;
+mod types;
 pub mod util;
+
+pub use types::*;
 
 use fallback::{fallback_variant, Fallback};
 use proc_macro2::{Ident, Literal, TokenStream};
@@ -12,10 +15,9 @@ use util::PathExt;
 /// As arbitrary_int is limited to basic rust primitives, the maximum is u128.
 /// Is there a true usecase for bitfields above this size?
 /// This would also be change-worthy when rust starts supporting LLVM's arbitrary integers.
-pub const MAX_STRUCT_BIT_SIZE: BitSize = 128;
+pub const MAX_STRUCT_BIT_SIZE: BitSize = BitSize(128);
 /// As `#[repr(u128)]` is unstable and currently no real usecase for higher sizes exists, the maximum is u64.
-pub const MAX_ENUM_BIT_SIZE: BitSize = 64;
-pub type BitSize = u8;
+pub const MAX_ENUM_BIT_SIZE: BitSize = BitSize(64);
 
 pub(crate) fn parse_derive(item: TokenStream) -> DeriveInput {
     syn::parse2(item).unwrap_or_else(unreachable)
@@ -68,9 +70,10 @@ pub fn bitsize_and_arbitrary_int_from(bitsize_arg: TokenStream) -> (BitSize, Tok
     let bitsize = bitsize
         .base10_parse()
         .ok()
-        .filter(|&n| n != 0 && n <= MAX_STRUCT_BIT_SIZE)
+        .filter(|&n| n != BitSize(0) && n <= MAX_STRUCT_BIT_SIZE)
         .unwrap_or_else(|| abort!(bitsize_arg, "attribute value is not a valid number"; help = "currently, numbers from 1 to {} are allowed", MAX_STRUCT_BIT_SIZE));
     let arb_int = syn::parse_str(&format!("u{bitsize}")).unwrap_or_else(unreachable);
+
     (bitsize, arb_int)
 }
 
@@ -167,7 +170,7 @@ pub fn bitsize_from_type_ident(type_name: &Ident) -> Option<BitSize> {
     let type_name = type_name.to_string();
 
     if type_name == "bool" {
-        Some(1)
+        Some(BitSize(1))
     } else if let Some(suffix) = type_name.strip_prefix('u') {
         // characters which may appear in this suffix are digits, letters and underscores.
         // parse() will reject letters and underscores, so this should be correct.

@@ -31,11 +31,11 @@ fn analyze(derive_input: &DeriveInput) -> (&syn::Data, TokenStream, &Ident, BitS
 fn analyze_enum(variants: Iter<Variant>, name: &Ident, internal_bitsize: BitSize, arb_int: &TokenStream) -> (Vec<TokenStream>, Vec<TokenStream>) {
     validate_enum_variants(variants.clone());
 
-    if enum_fills_bitsize(internal_bitsize, variants.len()) {
+    if enum_fills_bitsize(internal_bitsize.get(), variants.len()) {
         emit_call_site_warning!("enum fills its bitsize"; help = "you can use `#[derive(FromBits)]` instead, rust will provide `TryFrom` for you (so you don't necessarily have to update call-sites)");
     }
 
-    let mut assigner = DiscriminantAssigner::new(internal_bitsize);
+    let mut assigner = DiscriminantAssigner::new(internal_bitsize.get());
 
     variants
         .map(|variant| {

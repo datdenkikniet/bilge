@@ -87,7 +87,7 @@ fn generate_to_int_match_arms(
         }
     };
 
-    let mut assigner = DiscriminantAssigner::new(bitsize);
+    let mut assigner = DiscriminantAssigner::new(bitsize.get());
 
     variants
         .map(|variant| {

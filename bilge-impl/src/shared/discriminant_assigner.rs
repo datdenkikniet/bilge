@@ -12,13 +12,13 @@ pub(crate) struct DiscriminantAssigner {
 impl DiscriminantAssigner {
     pub fn new(bitsize: u8) -> DiscriminantAssigner {
         DiscriminantAssigner {
-            bitsize,
+            bitsize: BitSize(bitsize),
             next_expected_assignment: 0,
         }
     }
 
     fn max_value(&self) -> u128 {
-        (1u128 << self.bitsize) - 1
+        (1u128 << self.bitsize.get()) - 1
     }
 
     fn value_from_discriminant(&self, variant: &Variant) -> Option<u128> {

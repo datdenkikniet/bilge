@@ -34,7 +34,7 @@ fn analyze_enum(
 ) -> (Vec<TokenStream>, Vec<TokenStream>) {
     validate_enum_variants(variants.clone(), fallback);
 
-    let enum_is_filled = enum_fills_bitsize(internal_bitsize, variants.len());
+    let enum_is_filled = enum_fills_bitsize(internal_bitsize.get(), variants.len());
     if !enum_is_filled && fallback.is_none() {
         abort_call_site!("enum doesn't fill its bitsize"; help = "you need to use `#[derive(TryFromBits)]` instead, or specify one of the variants as #[fallback]")
     }
@@ -43,7 +43,7 @@ fn analyze_enum(
         abort_call_site!("enum already has {} variants", variants.len(); help = "remove the `#[fallback]` attribute")
     }
 
-    let mut assigner = DiscriminantAssigner::new(internal_bitsize);
+    let mut assigner = DiscriminantAssigner::new(internal_bitsize.get());
 
     let is_fallback = |variant_name| {
         if let Some(Fallback::Unit(name) | Fallback::WithValue(name)) = fallback {
