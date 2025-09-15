@@ -1,16 +1,16 @@
 use proc_macro2::{Ident, TokenStream};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{punctuated::Iter, Data, DeriveInput, Fields, Variant};
 
-use crate::shared::{self, discriminant_assigner::DiscriminantAssigner, fallback::Fallback, unreachable, BitSize};
+use crate::shared::{self, discriminant_assigner::DiscriminantAssigner, fallback::Fallback, unreachable, ArbInt, BitSize};
 
 pub(crate) fn binary(item: TokenStream) -> TokenStream {
     let derive_input = parse(item);
-    let (derive_data, arb_int, name, bitsize, fallback) = analyze(&derive_input);
+    let (derive_data, _, name, bitsize, fallback) = analyze(&derive_input);
 
     match derive_data {
         Data::Struct(data) => generate_struct_binary_impl(name, &data.fields),
-        Data::Enum(data) => generate_enum_binary_impl(name, data.variants.iter(), arb_int, bitsize, fallback),
+        Data::Enum(data) => generate_enum_binary_impl(name, data.variants.iter(), bitsize, fallback),
         _ => unreachable(()),
     }
 }
@@ -50,10 +50,8 @@ fn generate_struct_binary_impl(struct_name: &Ident, fields: &Fields) -> TokenStr
     }
 }
 
-fn generate_enum_binary_impl(
-    enum_name: &Ident, variants: Iter<Variant>, arb_int: TokenStream, bitsize: BitSize, fallback: Option<Fallback>,
-) -> TokenStream {
-    let to_int_match_arms = generate_to_int_match_arms(variants, enum_name, bitsize, arb_int, fallback);
+fn generate_enum_binary_impl(enum_name: &Ident, variants: Iter<Variant>, bitsize: BitSize, fallback: Option<Fallback>) -> TokenStream {
+    let to_int_match_arms = generate_to_int_match_arms(variants, enum_name, bitsize, fallback);
 
     let body = if to_int_match_arms.is_empty() {
         quote! { Ok(()) }
@@ -76,9 +74,7 @@ fn generate_enum_binary_impl(
 }
 
 /// generates the arms for an (infallible) conversion from an enum to the enum's underlying arbitrary_int
-fn generate_to_int_match_arms(
-    variants: Iter<Variant>, enum_name: &Ident, bitsize: BitSize, arb_int: TokenStream, fallback: Option<Fallback>,
-) -> Vec<TokenStream> {
+fn generate_to_int_match_arms(variants: Iter<Variant>, enum_name: &Ident, bitsize: BitSize, fallback: Option<Fallback>) -> Vec<TokenStream> {
     let is_value_fallback = |variant_name| {
         if let Some(Fallback::WithValue(name)) = &fallback {
             variant_name == name
@@ -97,7 +93,7 @@ fn generate_to_int_match_arms(
             if is_value_fallback(variant_name) {
                 quote! { #enum_name::#variant_name(number) => *number, }
             } else {
-                shared::to_int_match_arm(enum_name, variant_name, &arb_int, variant_value)
+                shared::to_int_match_arm(enum_name, variant_name, &ArbInt::from(bitsize).to_token_stream(), variant_value)
             }
         })
         .collect()
